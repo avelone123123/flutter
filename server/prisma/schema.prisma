@@ -1,0 +1,100 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   // "teacher" or "student"
+  createdAt DateTime @default(now())
+  lastLogin DateTime?
+
+  // Relations
+  groupsAsTeacher Group[]     @relation("TeacherGroups")
+  studentProfile  Student?    @relation("StudentUser")
+  lessonsAsTeacher Lesson[]   @relation("TeacherLessons")
+
+  @@map("users")
+}
+
+model Student {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  name      String
+  email     String?
+  phone     String?
+  groupId   String?
+  createdAt DateTime @default(now())
+
+  // Relations
+  user       User         @relation("StudentUser", fields: [userId], references: [id], onDelete: Cascade)
+  group      Group?       @relation("GroupStudents", fields: [groupId], references: [id], onDelete: SetNull)
+  attendance Attendance[]
+
+  @@map("students")
+}
+
+model Group {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  teacherId   String
+  courseCode  String?
+  semester    String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  // Relations
+  teacher  User       @relation("TeacherGroups", fields: [teacherId], references: [id], onDelete: Cascade)
+  students Student[]  @relation("GroupStudents")
+  lessons  Lesson[]
+
+  @@map("groups")
+}
+
+model Lesson {
+  id          String   @id @default(uuid())
+  groupId     String
+  teacherId   String
+  title       String
+  description String?
+  date        DateTime
+  duration    Int      // minutes
+  qrCode      String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  // Relations
+  group      Group        @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  teacher    User         @relation("TeacherLessons", fields: [teacherId], references: [id], onDelete: Cascade)
+  attendance Attendance[]
+
+  @@map("lessons")
+}
+
+model Attendance {
+  id         String   @id @default(uuid())
+  lessonId   String
+  studentId  String
+  timestamp  DateTime @default(now())
+  status     String   // "present", "late", "absent"
+  scannedAt  DateTime?
+
+  // Relations
+  lesson  Lesson  @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([lessonId, studentId])
+  @@map("attendance")
+}
