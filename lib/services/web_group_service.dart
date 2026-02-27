@@ -99,9 +99,7 @@ class WebGroupService {
   /// Получение студентов группы
   Future<List<Map<String, dynamic>>> getGroupStudents(String groupId) async {
     try {
-      final response = await _apiService.get('/groups/$groupId/students');
-      final List<dynamic> studentsData = response['students'] ?? [];
-      return studentsData.map((data) => data as Map<String, dynamic>).toList();
+      return await _apiService.getStudentsByGroup(groupId);
     } catch (e) {
       debugPrint('Ошибка получения студентов группы: $e');
       return [];

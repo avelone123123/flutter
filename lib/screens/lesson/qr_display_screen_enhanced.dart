@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:smart_attendance/services/web_lesson_service.dart';
+import '../../services/api_service.dart';
 import 'dart:async';
 
 class QrDisplayScreen extends StatefulWidget {
@@ -124,14 +125,19 @@ class _QrDisplayScreenState extends State<QrDisplayScreen> {
       final now = DateTime.now();
       final validUntil = now.add(const Duration(hours: 2));
 
-      await FirebaseFirestore.instance
-          .collection('lessons')
-          .doc(widget.lessonId)
-          .update({
-        'qrCode': newQrCode,
-        'qrValidFrom': Timestamp.fromDate(now),
-        'qrValidUntil': Timestamp.fromDate(validUntil),
-      });
+      if (kIsWeb) {
+        final apiService = ApiService();
+        await apiService.refreshLessonQR(widget.lessonId, newQrCode);
+      } else {
+        await FirebaseFirestore.instance
+            .collection('lessons')
+            .doc(widget.lessonId)
+            .update({
+          'qrCode': newQrCode,
+          'qrValidFrom': Timestamp.fromDate(now),
+          'qrValidUntil': Timestamp.fromDate(validUntil),
+        });
+      }
 
       setState(() => _qrCode = newQrCode);
       _startTimer(validUntil);
@@ -295,8 +301,11 @@ class _QrDisplayScreenState extends State<QrDisplayScreen> {
 
             const SizedBox(height: 16),
 
-            // Статистика посещаемости в реальном времени
-            StreamBuilder<DocumentSnapshot>(
+            // Статистика посещаемости
+            if (kIsWeb)
+              _buildWebAttendanceCard()
+            else
+              StreamBuilder<DocumentSnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('lessons')
                   .doc(widget.lessonId)
@@ -309,80 +318,7 @@ class _QrDisplayScreenState extends State<QrDisplayScreen> {
                 final data = snapshot.data!.data() as Map<String, dynamic>?;
                 final attendanceList = data?['attendanceMarked'] as List? ?? [];
 
-                return Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              'Отметились:',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Chip(
-                              label: Text(
-                                '${attendanceList.length}',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              backgroundColor: Colors.green.withOpacity(0.2),
-                            ),
-                          ],
-                        ),
-                        if (attendanceList.isNotEmpty) ...[
-                          const Divider(),
-                          ...attendanceList.map((studentId) {
-                            return FutureBuilder<DocumentSnapshot>(
-                              future: FirebaseFirestore.instance
-                                  .collection('users')
-                                  .doc(studentId.toString())
-                                  .get(),
-                              builder: (context, userSnapshot) {
-                                if (!userSnapshot.hasData) {
-                                  return const ListTile(
-                                    dense: true,
-                                    leading: SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(strokeWidth: 2),
-                                    ),
-                                  );
-                                }
-
-                                final userData = userSnapshot.data!.data()
-                                    as Map<String, dynamic>?;
-                                final name = userData?['name'] ?? 'Студент';
-
-                                return ListTile(
-                                  dense: true,
-                                  leading: const Icon(
-                                    Icons.check_circle,
-                                    color: Colors.green,
-                                  ),
-                                  title: Text(name),
-                                  trailing: const Text(
-                                    'Присутствует',
-                                    style: TextStyle(
-                                      color: Colors.green,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                );
-                              },
-                            );
-                          }).toList(),
-                        ],
-                      ],
-                    ),
-                  ),
-                );
+                return _buildAttendanceCard(attendanceList, isWeb: false);
               },
             ),
 
@@ -426,13 +362,18 @@ class _QrDisplayScreenState extends State<QrDisplayScreen> {
                       );
 
                       if (confirm == true) {
-                        await FirebaseFirestore.instance
-                            .collection('lessons')
-                            .doc(widget.lessonId)
-                            .update({
-                          'qrValidUntil': Timestamp.fromDate(DateTime.now()),
-                          'closed': true,
-                        });
+                        if (kIsWeb) {
+                          final apiService = ApiService();
+                          await apiService.endLesson(widget.lessonId);
+                        } else {
+                          await FirebaseFirestore.instance
+                              .collection('lessons')
+                              .doc(widget.lessonId)
+                              .update({
+                            'qrValidUntil': Timestamp.fromDate(DateTime.now()),
+                            'closed': true,
+                          });
+                        }
 
                         if (mounted) {
                           Navigator.pop(context);
@@ -484,6 +425,71 @@ class _QrDisplayScreenState extends State<QrDisplayScreen> {
                 ),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWebAttendanceCard() {
+    final attendanceList = _lessonData?['attendance'] as List? ?? [];
+    return _buildAttendanceCard(attendanceList, isWeb: true);
+  }
+
+  Widget _buildAttendanceCard(List attendanceList, {required bool isWeb}) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Отметились:',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Chip(
+                  label: Text(
+                    '${attendanceList.length}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  backgroundColor: Colors.green.withOpacity(0.2),
+                ),
+              ],
+            ),
+            if (attendanceList.isNotEmpty) ...[
+              const Divider(),
+              ...attendanceList.map((item) {
+                String name;
+                if (isWeb && item is Map) {
+                  name = item['student']?['name'] ?? item['studentId'] ?? 'Студент';
+                } else {
+                  name = item.toString();
+                }
+                return ListTile(
+                  dense: true,
+                  leading: const Icon(
+                    Icons.check_circle,
+                    color: Colors.green,
+                  ),
+                  title: Text(name),
+                  trailing: const Text(
+                    'Присутствует',
+                    style: TextStyle(
+                      color: Colors.green,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                );
+              }),
+            ],
           ],
         ),
       ),

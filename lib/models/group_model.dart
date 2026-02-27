@@ -50,7 +50,9 @@ class GroupModel {
       course: map['course'] ?? '',
       year: map['year'] ?? 1,
       description: map['description'],
-      studentIds: List<String>.from(map['studentIds'] ?? []),
+      studentIds: map.containsKey('students')
+          ? (map['students'] as List).map((s) => s['id'] as String).toList()
+          : List<String>.from(map['studentIds'] ?? []),
       teacherId: map['teacherId'] ?? '',
       createdAt: map['createdAt'] is DateTime 
           ? map['createdAt'] 

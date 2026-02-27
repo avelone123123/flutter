@@ -299,6 +299,23 @@ class ApiService {
 
   // ========== STUDENTS ==========
 
+  Future<List<Map<String, dynamic>>> getAllStudents() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/students'),
+        headers: _headers,
+      );
+
+      if (response.statusCode == 200) {
+        return List<Map<String, dynamic>>.from(jsonDecode(response.body));
+      } else {
+        throw Exception('Failed to get all students');
+      }
+    } catch (e) {
+      throw Exception('Get all students error: $e');
+    }
+  }
+
   Future<List<Map<String, dynamic>>> getStudentsByGroup(String groupId) async {
     try {
       final response = await http.get(
@@ -363,6 +380,52 @@ class ApiService {
     }
   }
 
+  Future<List<Map<String, dynamic>>> getActiveLessons() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/lessons/active'),
+        headers: _headers,
+      );
+
+      if (response.statusCode == 200) {
+        return List<Map<String, dynamic>>.from(jsonDecode(response.body));
+      } else {
+        throw Exception('Failed to get active lessons');
+      }
+    } catch (e) {
+      throw Exception('Get active lessons error: $e');
+    }
+  }
+
+  Future<void> refreshLessonQR(String lessonId, String qrCode) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/lessons/$lessonId/refresh-qr'),
+        headers: _headers,
+        body: jsonEncode({'qrCode': qrCode}),
+      );
+      if (response.statusCode != 200) {
+        throw Exception('Failed to refresh QR');
+      }
+    } catch (e) {
+      throw Exception('Refresh QR error: $e');
+    }
+  }
+
+  Future<void> endLesson(String lessonId) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/lessons/$lessonId/end'),
+        headers: _headers,
+      );
+      if (response.statusCode != 200) {
+        throw Exception('Failed to end lesson');
+      }
+    } catch (e) {
+      throw Exception('End lesson error: $e');
+    }
+  }
+
   Future<Map<String, dynamic>> createLesson({
     required String groupId,
     required String title,
@@ -370,6 +433,10 @@ class ApiService {
     required DateTime date,
     int? duration,
     String? qrCode,
+    String? type,
+    String? startTime,
+    String? endTime,
+    String? classroom,
   }) async {
     try {
       final response = await http.post(
@@ -382,6 +449,10 @@ class ApiService {
           'date': date.toIso8601String(),
           'duration': duration ?? 90,
           'qrCode': qrCode,
+          'type': type,
+          'startTime': startTime,
+          'endTime': endTime,
+          'classroom': classroom,
         }),
       );
 
@@ -438,6 +509,82 @@ class ApiService {
       }
     } catch (e) {
       throw Exception('Get attendance error: $e');
+    }
+  }
+
+  // ========== STUDENT-SPECIFIC ==========
+
+  /// Get current student profile
+  Future<Map<String, dynamic>> getStudentProfile() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/students/me'),
+        headers: _headers,
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception('Student profile not found');
+      }
+    } catch (e) {
+      throw Exception('Get student profile error: $e');
+    }
+  }
+
+  /// Get current student's groups with lessons
+  Future<List<Map<String, dynamic>>> getStudentGroups() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/students/me/groups'),
+        headers: _headers,
+      );
+
+      if (response.statusCode == 200) {
+        return List<Map<String, dynamic>>.from(jsonDecode(response.body));
+      } else {
+        throw Exception('Failed to get student groups');
+      }
+    } catch (e) {
+      throw Exception('Get student groups error: $e');
+    }
+  }
+
+  /// Mark attendance by QR code
+  Future<Map<String, dynamic>> markAttendanceByQR(String qrCode) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/attendance/qr'),
+        headers: _headers,
+        body: jsonEncode({'qrCode': qrCode}),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return jsonDecode(response.body);
+      } else {
+        final error = jsonDecode(response.body);
+        throw Exception(error['error'] ?? 'Failed to mark attendance');
+      }
+    } catch (e) {
+      throw Exception('Mark attendance error: $e');
+    }
+  }
+
+  /// Get current student's attendance history and stats
+  Future<Map<String, dynamic>> getMyAttendance() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/attendance/me'),
+        headers: _headers,
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception('Failed to get attendance');
+      }
+    } catch (e) {
+      throw Exception('Get my attendance error: $e');
     }
   }
 }

@@ -52,12 +52,10 @@ class SmartAttendanceApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         // Провайдер языка
         ChangeNotifierProvider(create: (_) => LanguageProvider()),
-        // Провайдер групп (только для mobile, web использует REST API напрямую)
-        if (!kIsWeb)
-          ChangeNotifierProvider(create: (_) => GroupProvider()),
-        // Провайдер занятий (только для mobile, web использует REST API напрямую)
-        if (!kIsWeb)
-          ChangeNotifierProvider(create: (_) => LessonProvider()),
+        // Провайдер групп (содержит логику для работы и с Web, и с Mobile)
+        ChangeNotifierProvider(create: (_) => GroupProvider()),
+        // Провайдер занятий (содержит логику для работы и с Web, и с Mobile)
+        ChangeNotifierProvider(create: (_) => LessonProvider()),
       ],
       child: Consumer2<LocaleProvider, ThemeProvider>(
         builder: (context, localeProvider, themeProvider, child) {

@@ -13,6 +13,16 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+process.on('uncaughtException', (err) => {
+  console.error('🔥 Uncaught Exception:', err);
+});
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('🔥 Unhandled Rejection at:', promise, 'reason:', reason);
+});
+process.on('exit', (code) => {
+  console.log('🛑 Process exiting with code:', code);
+});
+
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -20,7 +30,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Health check
 app.get('/', (req: Request, res: Response) => {
-  res.json({ 
+  res.json({
     message: 'Smart Attendance API Server',
     status: 'running',
     timestamp: new Date().toISOString()
@@ -34,6 +44,11 @@ app.use('/api/students', studentRoutes);
 app.use('/api/lessons', lessonRoutes);
 app.use('/api/attendance', attendanceRoutes);
 
+// Catch-all 404 handler (returns JSON, not HTML)
+app.use((req: Request, res: Response) => {
+  res.status(404).json({ error: `Route not found: ${req.method} ${req.originalUrl}` });
+});
+
 // Error handling middleware
 app.use((err: any, req: Request, res: Response, next: any) => {
   console.error('Error:', err);
@@ -43,8 +58,13 @@ app.use((err: any, req: Request, res: Response, next: any) => {
   });
 });
 
+import http from 'http';
+
 // Start server
-app.listen(PORT, () => {
+const server = http.createServer(app);
+
+server.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   console.log(`📊 Database: ${process.env.DATABASE_URL ? 'Connected' : 'Not configured'}`);
+  server.ref();
 });

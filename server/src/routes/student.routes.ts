@@ -7,6 +7,98 @@ const router = express.Router();
 // All routes require authentication
 router.use(authenticateToken);
 
+// Get all students
+router.get('/', authorizeRole(['teacher']), async (req: AuthRequest, res: Response) => {
+  try {
+    const students = await prisma.student.findMany({
+      orderBy: { name: 'asc' }
+    });
+    res.json(students);
+  } catch (error: any) {
+    console.error('Get all students error:', error);
+    res.status(500).json({ error: 'Failed to get students' });
+  }
+});
+
+// Get current student profile (by userId from JWT)
+router.get('/me', async (req: AuthRequest, res: Response) => {
+  try {
+    const student = await prisma.student.findFirst({
+      where: { userId: req.userId },
+      include: {
+        group: {
+          include: {
+            teacher: {
+              select: { id: true, name: true, email: true }
+            }
+          }
+        }
+      }
+    });
+
+    if (!student) {
+      return res.status(404).json({ error: 'Student profile not found' });
+    }
+
+    res.json(student);
+  } catch (error: any) {
+    console.error('Get student profile error:', error);
+    res.status(500).json({ error: 'Failed to get student profile' });
+  }
+});
+
+// Get current student's groups with lessons
+router.get('/me/groups', async (req: AuthRequest, res: Response) => {
+  try {
+    // Find all student records for this user
+    const students = await prisma.student.findMany({
+      where: { userId: req.userId },
+      select: { groupId: true }
+    });
+
+    const groupIds = students
+      .map(s => s.groupId)
+      .filter((id): id is string => id !== null);
+
+    if (groupIds.length === 0) {
+      return res.json([]);
+    }
+
+    const groups = await prisma.group.findMany({
+      where: {
+        id: { in: groupIds },
+        isActive: true
+      },
+      include: {
+        teacher: {
+          select: { id: true, name: true, email: true }
+        },
+        lessons: {
+          orderBy: { date: 'desc' },
+          include: {
+            attendance: {
+              where: {
+                student: {
+                  userId: req.userId
+                }
+              }
+            }
+          }
+        },
+        _count: {
+          select: { students: true }
+        }
+      },
+      orderBy: { name: 'asc' }
+    });
+
+    res.json(groups);
+  } catch (error: any) {
+    console.error('Get student groups error:', error);
+    res.status(500).json({ error: 'Failed to get student groups' });
+  }
+});
+
 // Create a new student (teachers only)
 router.post('/', authorizeRole(['teacher']), async (req: AuthRequest, res: Response) => {
   try {

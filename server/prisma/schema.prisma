@@ -73,6 +73,10 @@ model Lesson {
   duration    Int      // minutes
   qrCode      String?
   isActive    Boolean  @default(true)
+  type        String?  // lecture, lab, etc.
+  startTime   String?
+  endTime     String?
+  classroom   String?
   createdAt   DateTime @default(now())
 
   // Relations

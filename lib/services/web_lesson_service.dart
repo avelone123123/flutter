@@ -9,7 +9,23 @@ class WebLessonService {
   /// Создание нового занятия
   Future<String> createLesson(LessonModel lesson) async {
     try {
-      final response = await _apiService.post('/lessons', lesson.toJson());
+      // Auto-generate QR code if empty
+      final qrCode = lesson.qrCode.isNotEmpty
+          ? lesson.qrCode
+          : 'lesson_${DateTime.now().millisecondsSinceEpoch}';
+
+      final response = await _apiService.createLesson(
+        groupId: lesson.groupId,
+        title: lesson.subject,
+        description: lesson.notes,
+        date: lesson.date,
+        duration: 90,
+        qrCode: qrCode,
+        type: lesson.type.name,
+        startTime: lesson.startTime,
+        endTime: lesson.endTime,
+        classroom: lesson.classroom,
+      );
       return response['id'] ?? '';
     } catch (e) {
       debugPrint('Ошибка создания занятия: $e');

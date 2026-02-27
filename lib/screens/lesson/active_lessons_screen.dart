@@ -53,35 +53,6 @@ class _ActiveLessonsScreenState extends State<ActiveLessonsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // На web этот экран пока не поддерживается
-    if (kIsWeb) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('Активные занятия'),
-          centerTitle: true,
-          elevation: 0,
-        ),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.construction, size: 64, color: Colors.orange),
-              const SizedBox(height: 16),
-              const Text(
-                'Этот экран в разработке для web',
-                style: TextStyle(fontSize: 18),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Пожалуйста, используйте мобильное приложение',
-                style: TextStyle(color: Colors.grey[600]),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-    
     return Scaffold(
       appBar: AppBar(
         title: const Text('QR-коды занятий'),

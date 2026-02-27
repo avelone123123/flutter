@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../l10n/app_localizations.dart';
+import '../../services/api_service.dart';
+import '../../services/web_group_service.dart';
 
 class AddStudentsScreen extends StatefulWidget {
   final String groupId;
@@ -253,9 +255,19 @@ class _AddStudentsScreenState extends State<AddStudentsScreen> {
 
   Future<Map<String, dynamic>> _loadStudents() async {
     if (kIsWeb) {
-      // Web: должен использовать REST API
-      // TODO: Implement REST API call
-      throw UnimplementedError('Web version requires REST API implementation');
+      try {
+        final apiService = ApiService();
+        final allStudentsList = await apiService.getAllStudents();
+        final groupStudentsList = await apiService.getStudentsByGroup(widget.groupId);
+        
+        final currentStudentIds = groupStudentsList.map((s) => s['id'] as String).toSet();
+        return {
+          'allStudents': allStudentsList,
+          'currentStudentIds': currentStudentIds,
+        };
+      } catch (e) {
+        throw Exception('Ошибка загрузки студентов: $e');
+      }
     }
     
     try {
@@ -302,9 +314,14 @@ class _AddStudentsScreenState extends State<AddStudentsScreen> {
 
     try {
       if (kIsWeb) {
-        // Web: использовать REST API
-        // TODO: Implement REST API call
-        throw UnimplementedError('Web version requires REST API implementation');
+        final webGroupService = WebGroupService();
+        for (final studentId in _selectedStudentIds) {
+          await webGroupService.addStudentToGroup(widget.groupId, studentId);
+        }
+        if (mounted) {
+          Navigator.pop(context, true);
+        }
+        return;
       }
       
       // Получить текущий список студентов

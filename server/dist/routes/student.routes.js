@@ -9,6 +9,19 @@ const auth_middleware_1 = require("../middleware/auth.middleware");
 const router = express_1.default.Router();
 // All routes require authentication
 router.use(auth_middleware_1.authenticateToken);
+// Get all students
+router.get('/', (0, auth_middleware_1.authorizeRole)(['teacher']), async (req, res) => {
+    try {
+        const students = await prisma_1.default.student.findMany({
+            orderBy: { name: 'asc' }
+        });
+        res.json(students);
+    }
+    catch (error) {
+        console.error('Get all students error:', error);
+        res.status(500).json({ error: 'Failed to get students' });
+    }
+});
 // Create a new student (teachers only)
 router.post('/', (0, auth_middleware_1.authorizeRole)(['teacher']), async (req, res) => {
     try {

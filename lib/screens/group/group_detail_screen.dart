@@ -19,6 +19,7 @@ class GroupDetailScreen extends StatefulWidget {
 class _GroupDetailScreenState extends State<GroupDetailScreen> {
   // Для веб
   GroupModel? _webGroup;
+  List<Map<String, dynamic>> _webStudents = [];
   bool _isLoading = false;
   String? _errorMessage;
   Timer? _refreshTimer;
@@ -44,16 +45,18 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
     if (!mounted) return;
     
     setState(() {
-      _isLoading = true;
+      if (_webGroup == null) _isLoading = true;
       _errorMessage = null;
     });
 
     try {
       final webService = WebGroupService();
       final group = await webService.getGroup(widget.groupId);
+      final students = await webService.getGroupStudents(widget.groupId);
       if (!mounted) return;
       setState(() {
         _webGroup = group;
+        _webStudents = students;
         _isLoading = false;
       });
     } catch (e) {
@@ -141,16 +144,15 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
         ),
         const SizedBox(height: 16),
         
-        // Кнопка добавления студентов (только для mobile, web требует REST API)
-        if (!kIsWeb)
-          ElevatedButton.icon(
-            onPressed: () => _navigateToAddStudents(),
-            icon: const Icon(Icons.person_add),
-            label: Text(AppLocalizations.of(context)?.addStudents ?? 'Добавить студентов'),
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.all(16),
-            ),
+        // Кнопка добавления студентов
+        ElevatedButton.icon(
+          onPressed: () => _navigateToAddStudents(),
+          icon: const Icon(Icons.person_add),
+          label: Text(AppLocalizations.of(context)?.addStudents ?? 'Добавить студентов'),
+          style: ElevatedButton.styleFrom(
+            padding: const EdgeInsets.all(16),
           ),
+        ),
         const SizedBox(height: 16),
         
         Text(
@@ -158,7 +160,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
           style: Theme.of(context).textTheme.titleLarge,
         ),
         const SizedBox(height: 8),
-        if (studentIds.isEmpty)
+        if (_webStudents.isEmpty)
           const Card(
             child: Padding(
               padding: EdgeInsets.all(16),
@@ -166,14 +168,18 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
             ),
           )
         else
-          ...studentIds.map((studentId) => Card(
-                child: ListTile(
-                  leading: const CircleAvatar(
-                    child: Icon(Icons.person),
-                  ),
-                  title: Text('Студент ID: $studentId'),
+          ..._webStudents.map((student) {
+            final name = student['name'] ?? 'Студент';
+            return Card(
+              child: ListTile(
+                leading: CircleAvatar(
+                  child: Text(name.substring(0, 1).toUpperCase()),
                 ),
-              )),
+                title: Text(name),
+                subtitle: Text(student['email'] ?? ''),
+              ),
+            );
+          }),
       ],
     );
   }

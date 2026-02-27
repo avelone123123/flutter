@@ -41,6 +41,67 @@ router.post('/', (0, auth_middleware_1.authorizeRole)(['teacher']), async (req, 
         res.status(500).json({ error: 'Failed to create lesson' });
     }
 });
+// Get active lessons for a teacher
+router.get('/active', (0, auth_middleware_1.authorizeRole)(['teacher']), async (req, res) => {
+    console.log('HIT /active ROUTE for', req.userId);
+    try {
+        const lessons = await prisma_1.default.lesson.findMany({
+            where: {
+                teacherId: req.userId,
+                isActive: true
+            },
+            include: {
+                group: true,
+                attendance: true
+            },
+            orderBy: { date: 'asc' }
+        });
+        res.json(lessons);
+    }
+    catch (error) {
+        console.error('Get active lessons error:', error);
+        res.status(500).json({ error: 'Failed to get active lessons' });
+    }
+});
+// Refresh QR code for a lesson
+router.post('/:id/refresh-qr', (0, auth_middleware_1.authorizeRole)(['teacher']), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { qrCode } = req.body;
+        const lesson = await prisma_1.default.lesson.findUnique({ where: { id } });
+        if (!lesson || lesson.teacherId !== req.userId) {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+        const updated = await prisma_1.default.lesson.update({
+            where: { id },
+            data: { qrCode }
+        });
+        res.json(updated);
+    }
+    catch (error) {
+        console.error('Refresh QR error:', error);
+        res.status(500).json({ error: 'Failed to refresh QR' });
+    }
+});
+// End a lesson
+router.post('/:id/end', (0, auth_middleware_1.authorizeRole)(['teacher']), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const lesson = await prisma_1.default.lesson.findUnique({ where: { id } });
+        if (!lesson || lesson.teacherId !== req.userId) {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+        const updated = await prisma_1.default.lesson.update({
+            where: { id },
+            data: { isActive: false }
+        });
+        res.json(updated);
+    }
+    catch (error) {
+        console.error('End lesson error:', error);
+        res.status(500).json({ error: 'Failed to end lesson' });
+    }
+});
 // Get all lessons for a group
 router.get('/group/:groupId', async (req, res) => {
     try {

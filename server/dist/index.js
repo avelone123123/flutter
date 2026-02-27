@@ -15,6 +15,15 @@ const attendance_routes_1 = __importDefault(require("./routes/attendance.routes"
 dotenv_1.default.config();
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3000;
+process.on('uncaughtException', (err) => {
+    console.error('🔥 Uncaught Exception:', err);
+});
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('🔥 Unhandled Rejection at:', promise, 'reason:', reason);
+});
+process.on('exit', (code) => {
+    console.log('🛑 Process exiting with code:', code);
+});
 // Middleware
 app.use((0, cors_1.default)());
 app.use(express_1.default.json());
@@ -42,7 +51,10 @@ app.use((err, req, res, next) => {
     });
 });
 // Start server
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
     console.log(`🚀 Server running on http://localhost:${PORT}`);
     console.log(`📊 Database: ${process.env.DATABASE_URL ? 'Connected' : 'Not configured'}`);
 });
+setInterval(() => {
+    console.log('Tick to keep event loop alive...');
+}, 5000);

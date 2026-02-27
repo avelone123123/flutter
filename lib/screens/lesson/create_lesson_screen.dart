@@ -123,36 +123,14 @@ class _CreateLessonScreenState extends State<CreateLessonScreen> {
                     const SizedBox(height: 32),
 
                     // Выбор группы
-                    Consumer<GroupProvider>(
-                      builder: (context, groupProvider, child) {
-                        return DropdownButtonFormField<GroupModel>(
-                          value: _selectedGroup,
-                          decoration: const InputDecoration(
-                            labelText: 'Группа *',
-                            hintText: 'Выберите группу',
-                            border: OutlineInputBorder(),
-                            filled: true,
-                          ),
-                          items: groupProvider.groups.map((group) {
-                            return DropdownMenuItem(
-                              value: group,
-                              child: Text(group.fullName),
-                            );
-                          }).toList(),
-                          onChanged: (value) {
-                            setState(() {
-                              _selectedGroup = value;
-                            });
-                          },
-                          validator: (value) {
-                            if (value == null) {
-                              return 'Выберите группу';
-                            }
-                            return null;
-                          },
-                        );
-                      },
-                    ),
+                    if (kIsWeb)
+                      _buildGroupDropdown(_groups)
+                    else
+                      Consumer<GroupProvider>(
+                        builder: (context, groupProvider, child) {
+                          return _buildGroupDropdown(groupProvider.groups);
+                        },
+                      ),
                     const SizedBox(height: 16),
 
                     // Предмет
@@ -482,5 +460,46 @@ class _CreateLessonScreenState extends State<CreateLessonScreen> {
         });
       }
     }
+  }
+
+  /// Виджет выпадающего списка групп
+  Widget _buildGroupDropdown(List<GroupModel> groups) {
+    if (_isLoadingGroups) {
+      return const InputDecorator(
+        decoration: InputDecoration(
+          labelText: 'Группа *',
+          border: OutlineInputBorder(),
+          filled: true,
+        ),
+        child: Text('Загрузка групп...'),
+      );
+    }
+
+    return DropdownButtonFormField<GroupModel>(
+      value: _selectedGroup,
+      decoration: const InputDecoration(
+        labelText: 'Группа *',
+        hintText: 'Выберите группу',
+        border: OutlineInputBorder(),
+        filled: true,
+      ),
+      items: groups.map((group) {
+        return DropdownMenuItem(
+          value: group,
+          child: Text(group.fullName),
+        );
+      }).toList(),
+      onChanged: (value) {
+        setState(() {
+          _selectedGroup = value;
+        });
+      },
+      validator: (value) {
+        if (value == null) {
+          return 'Выберите группу';
+        }
+        return null;
+      },
+    );
   }
 }

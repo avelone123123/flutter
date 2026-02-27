@@ -165,6 +165,51 @@ router.put('/:id', authorizeRole(['teacher']), async (req: AuthRequest, res: Res
   }
 });
 
+// Add student to group (teachers only)
+router.post('/:id/students', authorizeRole(['teacher']), async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { studentId } = req.body;
+
+    const group = await prisma.group.findUnique({ where: { id } });
+    if (!group || group.teacherId !== req.userId) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const updatedStudent = await prisma.student.update({
+      where: { id: studentId },
+      data: { groupId: id }
+    });
+
+    res.json(updatedStudent);
+  } catch (error: any) {
+    console.error('Add student error:', error);
+    res.status(500).json({ error: 'Failed to add student to group' });
+  }
+});
+
+// Remove student from group (teachers only)
+router.delete('/:id/students/:studentId', authorizeRole(['teacher']), async (req: AuthRequest, res: Response) => {
+  try {
+    const { id, studentId } = req.params;
+
+    const group = await prisma.group.findUnique({ where: { id } });
+    if (!group || group.teacherId !== req.userId) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const updatedStudent = await prisma.student.update({
+      where: { id: studentId },
+      data: { groupId: null }
+    });
+
+    res.json(updatedStudent);
+  } catch (error: any) {
+    console.error('Remove student error:', error);
+    res.status(500).json({ error: 'Failed to remove student from group' });
+  }
+});
+
 // Delete group (teachers only)
 router.delete('/:id', authorizeRole(['teacher']), async (req: AuthRequest, res: Response) => {
   try {

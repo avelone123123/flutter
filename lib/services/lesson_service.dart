@@ -1,7 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
+import 'package:flutter/foundation.dart';
 import '../models/lesson_model.dart';
 import 'qr_service.dart';
+import 'api_service.dart';
 
 /// Сервис для работы с занятиями
 class LessonService {
@@ -9,7 +11,13 @@ class LessonService {
   factory LessonService() => _instance;
   LessonService._internal();
 
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  FirebaseFirestore get _firestore {
+    if (kIsWeb) {
+      throw Exception('Firestore is not supported on Web. Use ApiService instead.');
+    }
+    return FirebaseFirestore.instance;
+  }
+  
   final Uuid _uuid = const Uuid();
   final QRService _qrService = QRService();
 
@@ -81,6 +89,33 @@ class LessonService {
   /// Получение активных занятий преподавателя
   Future<List<LessonModel>> getActiveLessons(String teacherId) async {
     try {
+      if (kIsWeb) {
+        final apiService = ApiService();
+        final rawLessons = await apiService.getActiveLessons();
+        return rawLessons.map((e) {
+          final now = DateTime.now();
+          final date = e['date'] != null ? DateTime.parse(e['date']) : now;
+          return LessonModel(
+            id: e['id'] ?? '',
+            groupId: e['groupId'] ?? '',
+            groupName: e['group']?['name'] ?? 'Группа',
+            subject: e['title'] ?? 'Занятие',
+            type: LessonType.lecture,
+            date: date,
+            startTime: '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}',
+            endTime: '${date.add(Duration(minutes: e['duration'] ?? 90)).hour.toString().padLeft(2, '0')}:${date.add(Duration(minutes: e['duration'] ?? 90)).minute.toString().padLeft(2, '0')}',
+            classroom: 'Аудитория',
+            teacherId: e['teacherId'] ?? teacherId,
+            qrCode: e['qrCode'] ?? '',
+            qrValidFrom: now.subtract(const Duration(hours: 1)),
+            qrValidUntil: now.add(const Duration(hours: 2)),
+            createdAt: e['createdAt'] != null ? DateTime.parse(e['createdAt']) : now,
+            attendanceMarked: (e['attendance'] as List?)?.map((a) => a['studentId'].toString()).toList() ?? [],
+            isActive: e['isActive'] ?? true,
+          );
+        }).toList();
+      }
+
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
       
@@ -190,12 +225,19 @@ class LessonService {
   /// Обновление QR-кода занятия
   Future<void> refreshLessonQR(String lessonId) async {
     try {
+      final newQrCode = _qrService.generateLessonQR(lessonId);
+      
+      if (kIsWeb) {
+        final apiService = ApiService();
+        await apiService.refreshLessonQR(lessonId, newQrCode);
+        return;
+      }
+
       final lesson = await getLesson(lessonId);
       if (lesson == null) {
         throw Exception('Занятие не найдено');
       }
       
-      final newQrCode = _qrService.generateLessonQR(lessonId);
       final now = DateTime.now();
       final qrValidFrom = now.subtract(const Duration(minutes: 10));
       final qrValidUntil = now.add(const Duration(hours: 2, minutes: 10));
@@ -215,6 +257,12 @@ class LessonService {
   /// Завершение занятия
   Future<void> endLesson(String lessonId) async {
     try {
+      if (kIsWeb) {
+        final apiService = ApiService();
+        await apiService.endLesson(lessonId);
+        return;
+      }
+
       final lesson = await getLesson(lessonId);
       if (lesson == null) {
         throw Exception('Занятие не найдено');
